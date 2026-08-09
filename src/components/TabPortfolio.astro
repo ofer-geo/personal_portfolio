@@ -7,6 +7,13 @@ const sections = [
     label: 'Data Science & Analysis',
     projects: [
       {
+        title: 'Cadaster AI Assistant — Controlled Conversational Interface to Cadastral Data',
+        desc: 'Proof of concept exploring natural-language access to cadastral data without unrestricted AI database access: an LLM agent interprets intent and calls predefined tools over curated dbt models in PostGIS, returning grounded answers plus map visualizations.',
+        tags: ['Python', 'FastAPI', 'LangChain', 'LangGraph', 'dbt', 'PostGIS'],
+        thumb: `${base}/maps/cadaster-ai-assistant-3.png`,
+        href: `${base}/projects/cadaster-ai-assistant`,
+      },
+      {
         title: 'Israel Transit AI Agent — Conversational GTFS Data Assistant',
         desc: 'ReAct-style LLM agent answering natural-language questions (Hebrew or English) about Israeli bus routes, stops and schedules via tool-calling over a live GTFS/SIRI feed in DuckDB, with automatic multi-provider LLM fallback — built with Tamir Edelstein for Bar-Ilan University\'s Data Science programme. Work in progress.',
         tags: ['Python', 'LLM Agents', 'Tool Calling', 'DuckDB', 'Streamlit'],

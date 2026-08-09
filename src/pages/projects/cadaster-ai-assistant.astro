@@ -1,0 +1,423 @@
+---
+import ProjectLayout from '../../layouts/ProjectLayout.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<ProjectLayout
+  title="Cadaster AI Assistant"
+  year="2026"
+  section="Data Science & Analysis"
+  category="Personal Project · Proof of Concept"
+  tagline="A proof of concept for a controlled conversational interface to cadastral data — ask a normal-language question, get an answer grounded in curated data, without ever handing the AI unrestricted database access."
+  liveUrl="https://cadaster-ai-frontend.netlify.app/"
+  liveLabel="Open live demo"
+  githubUrl="https://github.com/ofer-geo/cadaster-ai-assistant"
+  tools={['Python', 'FastAPI', 'LangChain', 'LangGraph', 'dbt', 'PostGIS', 'Google Gemini', 'React', 'MapLibre GL']}
+>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">The Problem</h2>
+    <div class="proj-body">
+      <p>
+        Working with clients on cadastral and land-information systems, I kept seeing the same
+        pattern: users can only inspect cadastral data through predefined forms, filters, tables,
+        reports or GIS layers. These workflows are structured and necessary — but they assume the
+        user already knows which table holds the answer, which layer to open, which filter to
+        apply, which spatial operation to run, and how the underlying data model is put together.
+      </p>
+      <p>
+        A user often knows the business question they want to ask — "what parcels overlap?",
+        "what happened to this parcel?" — without knowing how to translate it into the system's
+        menus and filters. That gap between the question someone has and the query the system
+        expects is what this POC set out to explore.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">The Product Idea</h2>
+    <div class="proj-body">
+      <p>
+        What if a user could ask a cadastral database a normal-language question, while the system
+        kept strict control over what the AI is actually allowed to access and execute?
+      </p>
+      <p>
+        The Cadaster AI Assistant uses an LLM purely as an <strong>interpretation layer</strong>
+        between the user and the cadastral data — not as a database client. The model does not
+        receive unrestricted SQL access and has no freedom to query the database directly. It reads
+        the user's intent and decides which of a small set of predefined, trusted tools to call;
+        everything the tools are allowed to do is fixed in advance. This gets natural-language
+        interaction without giving the AI unrestricted access to the underlying cadastral database.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">How It Works</h2>
+    <div class="proj-flow" role="img" aria-label="Flow: User asks a question, the LLM agent interprets it and selects a tool, the tool queries a controlled dbt model in PostGIS, and the agent returns an answer plus a map visualization">
+      <span class="proj-flow-step">User question</span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">LLM agent<br /><small>interprets intent</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Approved tool<br /><small>deterministic call</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">dbt model / view<br /><small>curated, controlled</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">PostGIS</span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Answer + map</span>
+    </div>
+    <div class="proj-body">
+      <p>
+        The agent's job stops at understanding the question and picking the right tool. It never
+        writes or executes SQL itself. The tool queries a curated dbt model, the structured result
+        comes back, and the agent explains that result in natural language — with any spatial
+        results passed to the frontend as GeoJSON and drawn on the map. Database access stays
+        deterministic and controlled at every step.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">POC Capabilities</h2>
+    <div class="proj-body">
+      <p>
+        This is a proof of concept, not a production cadastral system. The current build implements
+        a small set of tools demonstrating several kinds of cadastral queries:
+      </p>
+    </div>
+    <ul class="proj-list">
+      <li>Retrieving current parcels</li>
+      <li>Filtering parcels by district and status</li>
+      <li>Viewing parcel history and lineage (splits, retirements, version chains)</li>
+      <li>Identifying parcel overlaps</li>
+      <li>Retrieving parcel statistics</li>
+      <li>Returning spatial results that can be visualized on a map</li>
+    </ul>
+    <div class="proj-body">
+      <p>Things you can ask the assistant in the live demo:</p>
+    </div>
+    <ul class="proj-quotes">
+      <li>"Can you show me the current approved parcels in District Mjini?"</li>
+      <li>"What overlaps exist in the cadastral database?"</li>
+      <li>"Can you show me the history of parcel PAR-101?"</li>
+    </ul>
+
+    <img
+      src={`${base}/maps/cadaster-ai-assistant-3.png`}
+      alt="Chat interface asking the assistant to summarize cadaster database statistics, returning total, current, approved, in-process and retired parcel counts, alongside a map overview of the Zanzibar coastline"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      Database statistics on request — the tool returns structured counts, the agent narrates them.
+    </p>
+
+    <img
+      src={`${base}/maps/cadaster-ai-assistant-1.png`}
+      alt="Chat interface asking what overlaps exist in the cadastral database, returning a table of overlapping parcel pairs with their statuses, alongside a map highlighting the overlapping parcel geometries"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      Overlap detection — the agent selects the overlap tool, and the result is rendered on the map.
+    </p>
+
+    <img
+      src={`${base}/maps/cadaster-ai-assistant-2.png`}
+      alt="Chat interface asking for the history of parcel PAR-100, returning its version status and validity dates plus a lineage summary of the child parcels it was split into, alongside a street map showing the parcel's location"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      Parcel history and lineage — split events, retirements and successor parcels explained in plain language.
+    </p>
+
+    <div class="proj-body">
+      <p>
+        The frontend is intentionally simple. Its purpose is to demonstrate the interaction pattern
+        — conversational result to spatial visualization — rather than to be a full cadastral client.
+        The same pattern could later be embedded into an existing cadastral information system, land
+        information system, GIS portal or administrative application.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Architecture &amp; Engineering Decisions</h2>
+    <div class="proj-body">
+      <p>The architecture is deliberately designed around one constraint: the LLM interprets intent, and only trusted, predefined operations ever touch the database.</p>
+    </div>
+    <ul class="proj-list">
+      <li><strong>No free-form SQL.</strong> The LLM cannot freely query PostgreSQL and never generates arbitrary SQL for execution — it can only call predefined tools.</li>
+      <li><strong>Curated data layer.</strong> Tools query curated views and models built with dbt, so the data layer is controlled separately from the AI layer.</li>
+      <li><strong>Grounded answers.</strong> Tool outputs — not model recall — provide the grounding for every final answer, reducing hallucination risk.</li>
+      <li><strong>Spatial results as GeoJSON.</strong> Results that carry geometry are passed back to the frontend as GeoJSON and rendered on a MapLibre map.</li>
+      <li><strong>Tracing.</strong> Agent runs are traced end-to-end with LangSmith, so tool selection and reasoning steps are inspectable rather than opaque.</li>
+    </ul>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Technology Stack</h2>
+
+    <div class="proj-stack-grid">
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Database</h3>
+        <ul class="proj-stack-list">
+          <li>PostgreSQL</li>
+          <li>PostGIS</li>
+          <li>Aiven managed PostgreSQL/PostGIS (deployed POC)</li>
+        </ul>
+      </div>
+
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Data Engineering</h3>
+        <ul class="proj-stack-list">
+          <li>dbt</li>
+          <li>Raw cadastral source tables</li>
+          <li>Staging models</li>
+          <li>Curated marts / views for the application</li>
+          <li>ELT workflow separating raw data from the application-facing layer</li>
+        </ul>
+      </div>
+
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Backend / AI</h3>
+        <ul class="proj-stack-list">
+          <li>Python &amp; FastAPI</li>
+          <li>LangChain &amp; LangGraph</li>
+          <li>Google Gemini</li>
+          <li>LangSmith (tracing &amp; observability)</li>
+          <li>Psycopg for PostgreSQL access</li>
+          <li>Purpose-built cadastral query tools</li>
+        </ul>
+      </div>
+
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Frontend</h3>
+        <ul class="proj-stack-list">
+          <li>React &amp; Vite</li>
+          <li>MapLibre GL</li>
+          <li>React Markdown</li>
+          <li>GeoJSON-based map updates</li>
+        </ul>
+      </div>
+
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Deployment</h3>
+        <ul class="proj-stack-list">
+          <li>Netlify — frontend</li>
+          <li>Render — FastAPI backend</li>
+          <li>Aiven — PostgreSQL/PostGIS</li>
+          <li>GitHub — source control &amp; deployment integration</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <div class="proj-note">
+      <h2 class="proj-note-title">A note on the data</h2>
+      <p>
+        All data used in this project is <strong>synthetic</strong>. The demo dataset is loosely
+        based on a Zanzibar cadastral context because I was physically working in Zanzibar while
+        developing this POC — but no parcels, ownership records, boundaries, IDs, names or other
+        information shown in the application represent real cadastral records. The dataset exists
+        only for demonstration and portfolio purposes.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">What This Could Become</h2>
+    <div class="proj-body">
+      <p>
+        This project is intentionally limited to a proof of concept. But the interaction model it
+        demonstrates — natural-language questions answered through controlled, predefined tools
+        over curated data — isn't specific to this dataset. The same pattern could be extended with
+        a broader tool set and embedded into a real cadastral or land-information system, giving
+        non-technical users a way to explore data conversationally without ever loosening control
+        over what the AI is allowed to touch.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Code</h2>
+    <p class="proj-body">
+      Source is public on GitHub; the demo is deployed live.
+    </p>
+    <div class="proj-links">
+      <a class="proj-external proj-external-primary" href="https://cadaster-ai-frontend.netlify.app/" target="_blank" rel="noopener noreferrer">
+        Open live demo →
+      </a>
+      <a class="proj-external" href="https://github.com/ofer-geo/cadaster-ai-assistant" target="_blank" rel="noopener noreferrer">
+        View repository on GitHub →
+      </a>
+    </div>
+  </section>
+
+</ProjectLayout>
+
+<style>
+  :global(.proj-list) {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 68ch;
+    margin-bottom: 20px;
+  }
+  :global(.proj-list li) {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #2A2A2A;
+    padding-left: 1.2em;
+    position: relative;
+  }
+  :global(.proj-list li::before) {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: #3D5E35;
+    font-weight: 600;
+  }
+
+  :global(.proj-quotes) {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 60ch;
+    margin-bottom: 28px;
+  }
+  :global(.proj-quotes li) {
+    font-size: 0.88rem;
+    font-style: italic;
+    line-height: 1.6;
+    color: #3A3A3A;
+    padding: 10px 14px;
+    background: #EAEAEA;
+    border-left: 3px solid #3D5E35;
+    border-radius: 2px;
+  }
+
+  /* ── Architecture flow diagram ── */
+  .proj-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: #EAEAEA;
+    border: 1px solid #C4C4C4;
+    border-radius: 6px;
+  }
+  .proj-flow-step {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1A1A1A;
+    background: #F5F5F0;
+    border: 1px solid #C4C4C4;
+    border-radius: 4px;
+    padding: 10px 14px;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .proj-flow-step small {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #6B6B6B;
+  }
+  .proj-flow-arrow {
+    font-size: 1rem;
+    color: #3D5E35;
+    font-weight: 700;
+  }
+
+  /* ── Technology stack grid ── */
+  .proj-stack-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .proj-stack-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #3D5E35;
+    margin-bottom: 10px;
+  }
+  .proj-stack-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .proj-stack-list li {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #2A2A2A;
+  }
+
+  /* ── Data disclaimer note ── */
+  .proj-note {
+    background: #F2EBDA;
+    border: 1px solid #D8C89A;
+    border-left: 4px solid #8B6914;
+    border-radius: 4px;
+    padding: 18px 22px;
+    max-width: 68ch;
+  }
+  .proj-note-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8B6914;
+    margin-bottom: 10px;
+    border: none;
+    padding: 0;
+  }
+  .proj-note p {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #3A3A3A;
+  }
+
+  .proj-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .proj-external {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #3D5E35;
+    text-decoration: none;
+  }
+  .proj-external:hover { text-decoration: underline; }
+  .proj-external-primary {
+    padding: 10px 20px;
+    color: #F0EAE0;
+    background: #3D5E35;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .proj-external-primary:hover { background: #2E4828; text-decoration: none; }
+
+  @media (max-width: 700px) {
+    .proj-stack-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .proj-stack-grid { grid-template-columns: 1fr; }
+    .proj-flow { flex-direction: column; align-items: stretch; }
+    .proj-flow-arrow { transform: rotate(90deg); text-align: center; }
+  }
+</style>

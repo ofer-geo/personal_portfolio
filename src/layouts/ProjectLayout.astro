@@ -7,9 +7,23 @@ export interface Props {
   section?: string;
   category?: string;
   tools?: string[];
+  tagline?: string;
+  liveUrl?: string;
+  liveLabel?: string;
+  githubUrl?: string;
 }
 
-const { title, year, section = 'Maps & Geospatial Analysis', category, tools = [] } = Astro.props;
+const {
+  title,
+  year,
+  section = 'Maps & Geospatial Analysis',
+  category,
+  tools = [],
+  tagline,
+  liveUrl,
+  liveLabel = 'Live demo',
+  githubUrl,
+} = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <Layout title={`${title} — Ofer Shahal`}>
@@ -28,6 +42,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       <div class="proj-header">
         <p class="proj-eyebrow">{section}{year ? ` · ${year}` : ''}</p>
         <h1 class="proj-title">{title}</h1>
+        {tagline && <p class="proj-tagline">{tagline}</p>}
+        {(liveUrl || githubUrl) && (
+          <div class="proj-hero-ctas">
+            {liveUrl && (
+              <a class="proj-external proj-external-primary" href={liveUrl} target="_blank" rel="noopener noreferrer">
+                {liveLabel} →
+              </a>
+            )}
+            {githubUrl && (
+              <a class="proj-external proj-external-secondary" href={githubUrl} target="_blank" rel="noopener noreferrer">
+                View on GitHub →
+              </a>
+            )}
+          </div>
+        )}
         {tools.length > 0 && (
           <div class="tags proj-tags">
             {tools.map(t => <span class="tag">{t}</span>)}
@@ -131,6 +160,44 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   line-height: 1.2;
   margin-bottom: 16px;
 }
+
+.proj-tagline {
+  font-size: 1.02rem;
+  line-height: 1.6;
+  color: #4A4A4A;
+  max-width: 60ch;
+  margin-bottom: 20px;
+}
+
+.proj-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.proj-external {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3D5E35;
+  text-decoration: none;
+}
+.proj-external:hover { text-decoration: underline; }
+.proj-external-primary {
+  padding: 10px 20px;
+  color: #F0EAE0;
+  background: #3D5E35;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.proj-external-primary:hover { background: #2E4828; text-decoration: none; }
+.proj-external-secondary {
+  padding: 10px 20px;
+  border: 1px solid #3D5E35;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.proj-external-secondary:hover { background: rgba(61,94,53,0.08); text-decoration: none; }
 
 .proj-tags { margin-top: 16px; }
 
