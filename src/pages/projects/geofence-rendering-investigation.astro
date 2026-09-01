@@ -1,0 +1,621 @@
+---
+import ProjectLayout from '../../layouts/ProjectLayout.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<ProjectLayout
+  title="Diagnosing Intermittent Web-Map Rendering Failures"
+  year="2026"
+  section="GIS Project Management"
+  category="Production Incident Investigation · ZanSDI / Sivan Design"
+  tagline="An observability and root-cause analysis workflow for a production GeoNode / GeoServer SDI platform — built with synthetic monitoring, Grafana, Loki and AI-assisted log analysis."
+  tools={['Python', 'Playwright', 'PostgreSQL', 'dbt', 'Grafana', 'Loki', 'GitHub Actions', 'GeoServer', 'GeoFence']}
+>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Project Summary</h2>
+    <div class="proj-body">
+      <p>
+        The production web-map on <strong>ZanSDI</strong>, Zanzibar's national Spatial Data
+        Infrastructure platform, occasionally failed to render — silently, intermittently, and
+        without correlating to load, server health or any obvious infrastructure signal. This case
+        study documents how we investigated and resolved it: by building a purpose-made observability
+        stack around synthetic user monitoring and centralized log analysis, rather than relying on
+        standard uptime checks that had no way of detecting the failure.
+      </p>
+      <p>
+        The investigation traced the problem to stale, silently-dead database connections being
+        reused by <strong>GeoFence</strong>, GeoServer's authorization component — and closed it out
+        with configuration changes validated against the same monitoring pipeline that found it.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">The Production Problem</h2>
+    <div class="proj-body">
+      <p>
+        ZanSDI is built on <strong>GeoNode</strong> and <strong>GeoServer</strong>. Its production
+        web-map began exhibiting intermittent rendering failures with a frustrating profile: real,
+        user-facing, and almost impossible to pin down.
+      </p>
+    </div>
+    <ul class="proj-list">
+      <li>Map layers occasionally failed to render.</li>
+      <li>Some map requests stayed pending for a long time before resolving or timing out.</li>
+      <li>The issue occurred randomly and could not be reproduced on demand.</li>
+      <li>It did not correlate with the number of active users.</li>
+      <li>CPU, memory and general server health metrics looked normal throughout.</li>
+      <li>The platform itself remained online and reachable at all times.</li>
+      <li>Traditional infrastructure monitoring showed no obvious failures.</li>
+    </ul>
+
+    <div class="proj-callout">
+      <p>
+        <strong>Key insight:</strong> the application stayed <em>available</em> while individual
+        rendering requests <em>silently failed</em>. Uptime monitoring answers "is the service up?"
+        — it has no way of answering "did this specific map request actually render?" That gap is
+        what made the problem invisible to standard monitoring and is what the investigation had to
+        solve for first.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Monitoring Architecture</h2>
+    <div class="proj-body">
+      <p>
+        We designed an ad-hoc observability solution combining infrastructure monitoring with
+        synthetic user monitoring, so that every rendering failure would leave behind precise,
+        correlated evidence: what failed, exactly when, and what the system was doing at that moment.
+      </p>
+    </div>
+
+    <h3 class="proj-flow-label">Synthetic monitoring &amp; analytics pipeline</h3>
+    <div class="proj-flow" role="img" aria-label="Flow: a synthetic user exercises GeoNode, GeoServer and GeoFence, raw observations are stored in PostgreSQL, dbt transforms them into analytical models, and Grafana dashboards visualize the results">
+      <span class="proj-flow-step">Synthetic user</span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">GeoNode / GeoServer<br /><small>/ GeoFence</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Raw observations<br /><small>PostgreSQL</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">dbt<br /><small>transformations</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Grafana<br /><small>dashboards</small></span>
+    </div>
+
+    <h3 class="proj-flow-label">Log aggregation pipeline</h3>
+    <div class="proj-flow" role="img" aria-label="Flow: application and system logs are centralized in Loki and visualized on a Grafana log dashboard">
+      <span class="proj-flow-step">Application &amp;<br /><small>system logs</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Loki</span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Grafana<br /><small>log dashboard</small></span>
+    </div>
+
+    <h3 class="proj-flow-label">Investigation → resolution</h3>
+    <div class="proj-flow" role="img" aria-label="Flow: synthetic monitoring, logs and AI-assisted analysis combine to identify the root cause, leading to GeoFence configuration improvements">
+      <span class="proj-flow-step">Synthetic monitoring</span>
+      <span class="proj-flow-plus">+</span>
+      <span class="proj-flow-step">Logs</span>
+      <span class="proj-flow-plus">+</span>
+      <span class="proj-flow-step">AI-assisted analysis</span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">Root cause<br /><small>identification</small></span>
+      <span class="proj-flow-arrow">→</span>
+      <span class="proj-flow-step">GeoFence config<br /><small>improvements</small></span>
+    </div>
+
+    <div class="proj-body">
+      <p>
+        On the infrastructure side, system and application logs were centralized with
+        <strong>Loki</strong> and wired into Grafana alongside the existing monitoring stack. The
+        objective was narrow and specific: preserve evidence from exactly the moments in which
+        rendering problems occurred, so that a failure captured at 03:14 could be traced back to the
+        log lines emitted at 03:14 — not inferred after the fact from aggregate metrics.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Synthetic Monitoring Workflow</h2>
+    <div class="proj-body">
+      <p>
+        The core of the investigation was an automated synthetic user that behaved like a real
+        person using the map — repeatedly, continuously, and with every observation logged. Each
+        monitoring cycle:
+      </p>
+    </div>
+    <ul class="proj-list">
+      <li>Opened the production web map.</li>
+      <li>Executed both anonymous and authenticated scenarios.</li>
+      <li>Zoomed through a predefined set of map scales.</li>
+      <li>Panned around the map to trigger new tile and feature requests.</li>
+      <li>Issued real WMS and tile requests against the live GeoServer instance.</li>
+      <li>Measured response times for every request.</li>
+      <li>Recorded each request as successful, failed or pending.</li>
+      <li>Captured a screenshot whenever a rendering problem occurred.</li>
+      <li>Stored every observation in PostgreSQL for downstream analysis.</li>
+    </ul>
+    <div class="proj-body">
+      <p>
+        A <strong>dbt</strong> analytics layer transformed the raw observation rows into analytical
+        models — cycle-level rollups, success-rate windows, response-time distributions — that fed
+        Grafana directly. The resulting dashboards visualized:
+      </p>
+    </div>
+    <ul class="proj-list">
+      <li>Monitoring cycle status (successful vs. failed) over time.</li>
+      <li>Success rate over time.</li>
+      <li>Failed requests.</li>
+      <li>Pending requests.</li>
+      <li>Average response time.</li>
+      <li>Historical monitoring cycles, for pattern-spotting across days.</li>
+    </ul>
+    <div class="proj-body">
+      <p>
+        The whole pipeline ran automatically and continuously via <strong>GitHub Actions</strong>,
+        so monitoring didn't depend on anyone manually kicking off a check — it was always running,
+        always writing evidence, whether or not anyone was watching Grafana at the time.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Investigation Process</h2>
+    <div class="proj-body">
+      <p>
+        The monitoring ran continuously for several days. The diagnosis came from correlating three
+        complementary sources of evidence, not from any single error message:
+      </p>
+    </div>
+
+    <ol class="proj-timeline">
+      <li class="proj-timeline-item">
+        <span class="proj-timeline-num">1</span>
+        <div class="proj-timeline-content">
+          <h4>Synthetic monitoring results</h4>
+          <p>The synthetic monitoring pipeline precisely identified the timestamps at which rendering failures occurred — down to the specific cycle, request and scenario.</p>
+        </div>
+      </li>
+      <li class="proj-timeline-item">
+        <span class="proj-timeline-num">2</span>
+        <div class="proj-timeline-content">
+          <h4>Centralized log correlation</h4>
+          <p>Those timestamps were cross-referenced against the Grafana log dashboards fed by Loki, surfacing GeoServer, GeoFence and infrastructure log activity around each failure window.</p>
+        </div>
+      </li>
+      <li class="proj-timeline-item">
+        <span class="proj-timeline-num">3</span>
+        <div class="proj-timeline-content">
+          <h4>AI-assisted log analysis</h4>
+          <p>AI-assisted analysis was used to inspect large volumes of correlated logs and identify recurring patterns across multiple, independent failure windows — patterns that were easy to miss when reading logs manually one incident at a time.</p>
+        </div>
+      </li>
+      <li class="proj-timeline-item">
+        <span class="proj-timeline-num">4</span>
+        <div class="proj-timeline-content">
+          <h4>Convergent diagnosis</h4>
+          <p>Rather than relying on a single log line or stack trace, the root cause emerged from the intersection of all three sources — the same underlying pattern showing up independently in the monitoring data, the logs and the AI-assisted review.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Monitoring in Practice</h2>
+    <img
+      src={`${base}/maps/geofence-rendering-investigation-1.png`}
+      alt="Grafana dashboard showing JVM process status and memory metrics — uptime, CPU cores, resident memory, heap used, live threads and heap/memory pool time series — monitored alongside GeoServer and GeoFence logs during the investigation"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      Centralized Grafana and Loki log analysis used to correlate GeoServer, GeoFence and
+      infrastructure events during rendering failures.
+    </p>
+
+    <img
+      src={`${base}/maps/geofence-rendering-investigation-2.png`}
+      alt="Grafana dashboard showing the Synthetic Monitoring Cycle Status timeline with green bars for successful cycles and red bars for failed cycles, a Success Rate Over Time chart, and summary panels for successful, pending and failed requests plus average response time"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      Synthetic monitoring dashboard showing monitoring cycles over time. Green bars indicate
+      successful rendering sessions while red bars indicate monitoring cycles in which one or more
+      expected rendering requests failed.
+    </p>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Root Cause</h2>
+    <div class="proj-body">
+      <p>
+        The investigation traced the intermittent rendering failures to <strong>GeoFence</strong>,
+        the authorization component sitting in front of GeoServer. GeoFence reused stale database
+        connections from its connection pool over the network. Some of those connections still
+        appeared alive at the pool level but were no longer actually usable.
+      </p>
+      <p>
+        When a stale connection was handed out and reused, the request holding it would wait —
+        sometimes for several minutes — before the connection finally timed out. Because this only
+        happened when a specific unusable connection was drawn from the pool, it explained every
+        symptom observed:
+      </p>
+    </div>
+    <ul class="proj-list">
+      <li>Why rendering occasionally stalled rather than failing outright.</li>
+      <li>Why users experienced missing map layers instead of a clear error.</li>
+      <li>Why infrastructure monitoring still looked healthy — CPU, memory and uptime were never affected, only individual requests stuck behind a dead connection.</li>
+    </ul>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Resolution</h2>
+    <div class="proj-body">
+      <p>
+        The fix targeted GeoFence's database connection handling directly, so that requests could no
+        longer block indefinitely on a connection that looked alive but wasn't:
+      </p>
+    </div>
+    <ul class="proj-list">
+      <li>Test database connections before using them, rather than trusting pool state alone.</li>
+      <li>Periodically remove stale idle connections from the pool.</li>
+      <li>Enable TCP network keepalive so dead connections are detected sooner.</li>
+      <li>Stop database connection attempts after 5 seconds.</li>
+      <li>Stop waiting for database responses after 30 seconds.</li>
+      <li>Stop waiting for an available pooled connection after 10 seconds.</li>
+    </ul>
+    <div class="proj-body">
+      <p>
+        Together, these changes prevented requests from blocking on a database connection that could
+        never actually complete — replacing an unbounded, silent stall with a bounded, fast failure
+        that the connection pool could recover from.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Outcome</h2>
+    <ul class="proj-list">
+      <li>Synthetic monitoring continued running unchanged after the fix, using the same pipeline that had originally detected the problem.</li>
+      <li>The previously observed intermittent rendering failures did not reoccur during the validation period.</li>
+      <li>Grafana dashboards confirmed stable rendering behaviour across the monitored window.</li>
+      <li>The investigation produced a reusable monitoring framework — synthetic monitoring, log correlation and AI-assisted analysis — rather than a one-time troubleshooting effort.</li>
+    </ul>
+    <div class="proj-note">
+      <h3 class="proj-note-title">On the outcome claim</h3>
+      <p>
+        We don't claim this class of issue can never occur again. What the monitoring demonstrated is
+        stable, failure-free rendering behaviour throughout the monitored validation period —
+        measured the same way the original problem was found, not just asserted after the fact.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Technologies</h2>
+    <div class="proj-stack-grid">
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Synthetic Monitoring</h3>
+        <ul class="proj-stack-list">
+          <li>Python</li>
+          <li>Playwright</li>
+          <li>GitHub Actions</li>
+        </ul>
+      </div>
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Data Pipeline</h3>
+        <ul class="proj-stack-list">
+          <li>PostgreSQL</li>
+          <li>Neon PostgreSQL</li>
+          <li>SQL</li>
+          <li>dbt</li>
+        </ul>
+      </div>
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">Observability</h3>
+        <ul class="proj-stack-list">
+          <li>Grafana</li>
+          <li>Loki</li>
+          <li>AI-assisted log analysis</li>
+        </ul>
+      </div>
+      <div class="proj-stack-group">
+        <h3 class="proj-stack-label">GIS Platform</h3>
+        <ul class="proj-stack-list">
+          <li>GeoNode</li>
+          <li>GeoServer</li>
+          <li>GeoFence</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">My Role</h2>
+    <div class="proj-body">
+      <p>I led the observability and monitoring side of the investigation end-to-end:</p>
+    </div>
+    <ul class="proj-list">
+      <li>Monitoring strategy and overall investigation design.</li>
+      <li>Synthetic monitoring design and automated implementation.</li>
+      <li>Data pipeline design, from raw observations to analytical models.</li>
+      <li>PostgreSQL data model for monitoring observations.</li>
+      <li>dbt analytical models transforming raw observations into dashboard-ready data.</li>
+      <li>Grafana dashboard development and SQL analytics.</li>
+      <li>AI-assisted log analysis.</li>
+      <li>Correlating monitoring evidence with application and infrastructure logs.</li>
+      <li>Technical investigation and diagnosis, working jointly with the GeoServer/GeoFence side of the effort.</li>
+    </ul>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Collaboration</h2>
+    <div class="proj-collab">
+      <p>
+        This investigation and monitoring solution was developed collaboratively. I worked together
+        with <strong>Mushegh Mkrtchyan</strong>, GIS Developer at Sivan Design, on the investigation,
+        monitoring implementation and resolution of the rendering issue.
+      </p>
+      <p>
+        Mushegh contributed to the GeoServer, GeoFence and GIS platform investigation and
+        implementation, while I led the monitoring strategy, synthetic user framework, automation,
+        PostgreSQL and dbt analytics pipeline, Grafana dashboards, analytical modelling and
+        AI-assisted log analysis. The diagnosis and resolution were achieved through close technical
+        collaboration between the two sides of the investigation.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Skills Demonstrated</h2>
+    <div class="proj-skills">
+      <span class="proj-skill">Production incident investigation</span>
+      <span class="proj-skill">Observability engineering</span>
+      <span class="proj-skill">Synthetic monitoring</span>
+      <span class="proj-skill">Root cause analysis</span>
+      <span class="proj-skill">GIS platform engineering</span>
+      <span class="proj-skill">GeoServer administration</span>
+      <span class="proj-skill">Data engineering</span>
+      <span class="proj-skill">SQL analytics</span>
+      <span class="proj-skill">dbt</span>
+      <span class="proj-skill">Grafana dashboard design</span>
+      <span class="proj-skill">Log analysis</span>
+      <span class="proj-skill">AI-assisted diagnostics</span>
+      <span class="proj-skill">Cross-system troubleshooting</span>
+      <span class="proj-skill">Technical leadership</span>
+      <span class="proj-skill">Monitoring architecture</span>
+    </div>
+  </section>
+
+</ProjectLayout>
+
+<style>
+  :global(.proj-list) {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 68ch;
+    margin-bottom: 20px;
+  }
+  :global(.proj-list li) {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #2A2A2A;
+    padding-left: 1.2em;
+    position: relative;
+  }
+  :global(.proj-list li::before) {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: #3D5E35;
+    font-weight: 600;
+  }
+
+  /* ── Callout (informational insight box) ── */
+  .proj-callout {
+    background: #E8F2E8;
+    border: 1px solid #C4D8C0;
+    border-left: 4px solid #3D5E35;
+    border-radius: 4px;
+    padding: 18px 22px;
+    max-width: 68ch;
+    margin-bottom: 20px;
+  }
+  .proj-callout p {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #2A2A2A;
+  }
+
+  /* ── Architecture flow diagrams ── */
+  .proj-flow-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6B6B6B;
+    margin-bottom: 10px;
+  }
+  .proj-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: #EAEAEA;
+    border: 1px solid #C4C4C4;
+    border-radius: 6px;
+  }
+  .proj-flow-step {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1A1A1A;
+    background: #F5F5F0;
+    border: 1px solid #C4C4C4;
+    border-radius: 4px;
+    padding: 10px 14px;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .proj-flow-step small {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #6B6B6B;
+  }
+  .proj-flow-arrow {
+    font-size: 1rem;
+    color: #3D5E35;
+    font-weight: 700;
+  }
+  .proj-flow-plus {
+    font-size: 1rem;
+    color: #8B6914;
+    font-weight: 700;
+  }
+
+  /* ── Investigation timeline ── */
+  .proj-timeline {
+    list-style: none;
+    padding: 0;
+    max-width: 68ch;
+    margin-bottom: 8px;
+  }
+  .proj-timeline-item {
+    display: flex;
+    gap: 16px;
+    padding-bottom: 24px;
+    position: relative;
+  }
+  .proj-timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 13px;
+    top: 30px;
+    bottom: 0;
+    width: 1px;
+    background: #C4C4C4;
+  }
+  .proj-timeline-num {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #3D5E35;
+    color: #F0EAE0;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .proj-timeline-content h4 {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1A1A1A;
+    margin-bottom: 4px;
+  }
+  .proj-timeline-content p {
+    font-size: 0.86rem;
+    line-height: 1.65;
+    color: #3A3A3A;
+  }
+
+  /* ── Technology stack grid ── */
+  .proj-stack-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+  }
+  .proj-stack-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #3D5E35;
+    margin-bottom: 10px;
+  }
+  .proj-stack-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .proj-stack-list li {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #2A2A2A;
+  }
+
+  /* ── Collaboration box ── */
+  .proj-collab {
+    background: #F5F5F0;
+    border: 1px solid #C4C4C4;
+    border-left: 4px solid #6BAA67;
+    border-radius: 4px;
+    padding: 18px 22px;
+    max-width: 68ch;
+  }
+  .proj-collab p {
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: #2A2A2A;
+  }
+  .proj-collab p + p { margin-top: 12px; }
+
+  /* ── Outcome disclaimer note ── */
+  .proj-note {
+    background: #F2EBDA;
+    border: 1px solid #D8C89A;
+    border-left: 4px solid #8B6914;
+    border-radius: 4px;
+    padding: 18px 22px;
+    max-width: 68ch;
+  }
+  .proj-note-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8B6914;
+    margin-bottom: 10px;
+    border: none;
+    padding: 0;
+  }
+  .proj-note p {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #3A3A3A;
+  }
+
+  /* ── Skills pills ── */
+  .proj-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .proj-skill {
+    font-size: 0.78rem;
+    font-weight: 500;
+    background: #E8F2E8;
+    color: #3D5E35;
+    padding: 6px 12px;
+    border-radius: 14px;
+    letter-spacing: 0.01em;
+  }
+
+  @media (max-width: 700px) {
+    .proj-stack-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .proj-stack-grid { grid-template-columns: 1fr; }
+    .proj-flow { flex-direction: column; align-items: stretch; }
+    .proj-flow-arrow, .proj-flow-plus { transform: rotate(90deg); text-align: center; }
+  }
+</style>
