@@ -31,7 +31,7 @@ Single-page layout (`src/pages/index.astro`) with a persistent `Sidebar` (identi
 - Older standalone components (`About.astro`, `Work.astro`, `Projects.astro`, `CV.astro`) exist but aren't wired into `index.astro` — superseded by the sidebar/tab layout
 
 ## Current Project Pages (`src/pages/projects/`)
-Data Science: `gtfs-transit-agent`, `escooter-cycling-thesis`, `bus-delay-prediction`, `train-stations-dashboard`, `scooter-supply-policy`
+Data Science: `gtfs-transit-agent`, `scooter-pileup-forecasting`, `escooter-cycling-thesis`, `bus-delay-prediction`, `train-stations-dashboard`, `scooter-supply-policy`
 GIS PM: `zansdi`, `ogun-sdi`
 Maps: `night-parking`, `contraflow`, `scooter-density`, `parking-policy`, `pride-events`, `service-frequency`
 

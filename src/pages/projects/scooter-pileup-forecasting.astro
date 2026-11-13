@@ -1,0 +1,121 @@
+---
+import ProjectLayout from '../../layouts/ProjectLayout.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<ProjectLayout
+  title="Forecasting E-Scooter Pile-Ups in Tel Aviv-Yafo"
+  year="2026"
+  section="Data Science & Analysis"
+  category="Spatio-temporal forecasting · Micromobility"
+  tools={['Python', 'LightGBM', 'PyTorch', 'Graph Neural Networks', 'GeoPandas', 'MDS']}
+>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Background</h2>
+    <div class="proj-body">
+      <p>
+        Shared dockless e-scooters tend to collect on the same pavements, where they block
+        pedestrians and draw complaints. Cities usually react after a pavement is already blocked.
+        This project asks whether pile-ups can be <strong>forecast 1 to 6 hours ahead</strong>, on a
+        100 m grid over Tel Aviv-Yafo, so that rebalancing crews or enforcement can be sent
+        <em>before</em> the pavement fills.
+      </p>
+      <p>
+        It builds on my <a href={`${base}/projects/escooter-cycling-thesis`}>MSc thesis</a> and uses a
+        full year (2024) of vehicle-status data. The data was provided by the
+        <strong>Tel Aviv-Yafo Municipality</strong>, which receives it from the scooter operators.
+      </p>
+    </div>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Methodology</h2>
+    <ul class="proj-list">
+      <li>Streamed 12 monthly archives of <strong>MDS Status Changes</strong> into vehicle partitions, so a whole year could be processed on a laptop. Joined each vehicle's records into <strong>8.8 M parking events</strong>, with every cleaning step counted.</li>
+      <li>Built an hourly panel of parked scooters, arrivals, departures and operator drop-offs for <strong>5,149 cells of 100 m</strong>, using municipal GIS layers (docking stations, cycling infrastructure) and hourly weather.</li>
+      <li>Compared simple baselines with <strong>LightGBM</strong> (Poisson), a <strong>GRU</strong>, and <strong>spatio-temporal graph neural networks</strong>. The best GNN passes messages between touching cells and along a <strong>scooter-flow graph</strong> learned from consecutive parking events.</li>
+      <li>Used a strict, once-only evaluation. Every choice was frozen on a tuning period (Sep–Oct): model variant, seeds, blend weight and flagging cutoffs. A list of 19 test-period events was locked in advance, and only then were Nov–Dec 2024 scored, once.</li>
+    </ul>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Results</h2>
+    <img
+      src={`${base}/maps/scooter-pileup-skill.png`}
+      alt="Line charts of average precision for 20+ scooters and the share of new pile-ups caught, at 1, 3 and 6 hours ahead, for LightGBM, the GNN and two baselines"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      Held-out test, Nov–Dec 2024. LightGBM and the GNN stay well ahead of the baselines at longer
+      horizons. At 6 hours their average precision is about double that of assuming no change.
+    </p>
+    <img
+      src={`${base}/maps/scooter-pileup-map.png`}
+      alt="Map of central Tel Aviv for 21:00 on 5 December 2024, showing cells with 20+ scooters in blue and the model's ten flagged cells outlined in orange"
+      class="proj-map"
+      loading="lazy"
+    />
+    <p class="proj-map-caption">
+      One test hour, with the forecast made 3 hours earlier. Eight of the model's ten flags were
+      real pile-ups. The cells it missed were next to Bloomfield Stadium during a football match.
+    </p>
+    <ul class="proj-list">
+      <li>At 3 hours ahead, the best model reached <strong>AP 0.755</strong> for cells with 20+ scooters, against 0.588 for assuming no change. It caught <strong>58%</strong> of new pile-ups with 10 flags per hour, against 36%.</li>
+      <li><strong>LightGBM was hard to beat.</strong> The flow-graph GNN came within 0.02 AP of it but never passed it, and blending the two added at most 0.004. That is an honest negative result for the more complex model.</li>
+      <li><strong>Event crowds are the blind spot.</strong> Around football matches the models caught few pile-ups, which points to event calendars as the next feature to add. Missile-alert days, by contrast, did not reduce accuracy.</li>
+    </ul>
+  </section>
+
+  <section class="proj-section">
+    <h2 class="proj-section-title">Code</h2>
+    <p class="proj-body">
+      The full pipeline, tests, result tables and write-up are on GitHub. The operator data itself
+      is not published.
+    </p>
+    <a class="proj-external" href="https://github.com/ofer-geo/sdes-oversupply" target="_blank" rel="noopener noreferrer">
+      View repository on GitHub →
+    </a>
+  </section>
+
+</ProjectLayout>
+
+<style>
+  :global(.proj-list) {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 68ch;
+  }
+  :global(.proj-list li) {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #2A2A2A;
+    padding-left: 1.2em;
+    position: relative;
+  }
+  :global(.proj-list li::before) {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: #3D5E35;
+    font-weight: 600;
+  }
+
+  .proj-body a {
+    color: #3D5E35;
+    font-weight: 600;
+  }
+
+  .proj-external {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #3D5E35;
+    text-decoration: none;
+  }
+  .proj-external:hover { text-decoration: underline; }
+</style>
